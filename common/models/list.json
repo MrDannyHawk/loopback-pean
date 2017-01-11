@@ -1,0 +1,29 @@
+{
+  "name": "List",
+  "plural": "Lists",
+  "base": "PersistedModel",
+  "idInjection": true,
+  "options": {
+    "validateUpsert": true
+  },
+  "properties": {
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "icon": {
+      "type": "string",
+      "required": false
+    }
+  },
+  "validations": [],
+  "relations": {
+    "listItems": {
+      "type": "hasMany",
+      "model": "ListItem",
+      "foreignKey": ""
+    }
+  },
+  "acls": [],
+  "methods": {}
+}
