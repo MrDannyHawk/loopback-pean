@@ -1,5 +1,56 @@
 'use strict';
 
-module.exports = function(Listitem) {
+module.exports = function (Listitem) {
 
+    Listitem.greet = function (msg, cb) {
+        console.log('ncasilbcsuko')
+        if(msg ==null){
+            console.log('null')
+        }else{
+            console.log('not null')
+        }
+            console.log(msg)
+            console.log('done')
+        cb(null, 'Greetings... ' + msg);
+    }
+
+    Listitem.remoteMethod(
+        'greet', {
+            accepts: {
+                arg: 'msg',
+                type: 'string'
+            },
+            returns: {
+                arg: 'greeting',
+                type: 'string'
+            }
+        });
+
+
+  Listitem.status = function(cb) {
+    var currentDate = new Date();
+    var currentHour = currentDate.getHours();
+    var OPEN_HOUR = 6;
+    var CLOSE_HOUR = 20;
+    console.log('Current hour is %d', currentHour);
+    var response;
+    if (currentHour > OPEN_HOUR && currentHour < CLOSE_HOUR) {
+      response = 'We are open for business.';
+    } else {
+      response = 'Sorry, we are closed. Open daily from 6am to 8pm.';
+    }
+    cb(null, response);
+  };
+    Listitem.remoteMethod(
+        'status', {
+            http: {
+                path: '/status',
+                verb: 'get'
+            },
+            returns: {
+                arg: 'status',
+                type: 'string'
+            }
+        }
+    );
 };
