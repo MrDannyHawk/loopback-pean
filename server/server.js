@@ -162,70 +162,7 @@ app.use(passport.initialize());
 app.use(passport.session()); // persistent login sessions
 
 
-// require('./config/passport').default(passport, app);
-// lib
-var passportLocal = require('passport-local');
-var loopback = require('loopback');
-
-// app
-var config = require('./config');
-var redis = require("redis");
-var client = redis.createClient();
-var jwt = require('jsonwebtoken'),
-    LocalStrategy = require('passport-local').Strategy,
-    BearerStrategy = require('passport-http-bearer').Strategy;
-
-passport.use('blah', new passportLocal.Strategy({
-    usernameField: 'email'
-},
-    function (email, password, cb) {
-        console.log('passportLocal.Strategy')
-
-
-        var User = loopback.User; // Getting User model
-
-        User.login({
-            email: "maadmin@meetmaestro.com",
-            password: "pass"
-        }, 'user', function (err, token) {
-            if (err) {
-                res.render('response', { //render view named 'response.ejs'
-                    title: 'Login failed',
-                    content: err,
-                    redirectTo: '/',
-                    redirectToLinkText: 'Try again'
-                });
-                return;
-            }
-            console.log('accessToken', token)
-            // res.status(200).json({ 'accessToken':    })
-            return cb(null, { "name": "Ima user", "id": 9879, "email": "fake@email.com", "token": token });
-
-        });
-
-
-
-    }));
-
-passport.use(new BearerStrategy(function (token, cb) {
-    console.log('BearerStrategy')
-    jwt.verify(token, 'verySecret', function (err, decoded) {
-        console.log('verify')
-        if (err) {
-            console.log(err)
-            return cb(err);
-        }
-        console.log('no err')
-        client.get(token, function (err, user) {
-            console.log('redis ')
-            if (err) return cb(err);
-            console.log('no redis error')
-            return cb(null, user ? JSON.parse(user) : false);
-        });
-    });
-}));
-
-
+require('./config/passport').default(passport, app);
 
 app.post('/jwt/login', function (req, res, next) {
 
