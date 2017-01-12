@@ -64,6 +64,10 @@ app.middleware('auth', loopback.token({
     model: app.models.accessToken,
 }));
 
+console.log(loopback.token({
+    model: app.models.accessToken,
+}));
+
 app.middleware('session:before', cookieParser(app.get('cookieSecret')));
 app.middleware('session', session({
     secret: 'kitty',
@@ -78,11 +82,13 @@ app.use(flash());
 console.log(app.models.user);
 console.log(app.models.userIdentity);
 console.log(app.models.UserCredential);
+
 passportConfigurator.setupModels({
     userModel: app.models.user,
     userIdentityModel: app.models.userIdentity,
     userCredentialModel: app.models.UserCredential,
 });
+
 for (var s in config) {
     var c = config[s];
     c.session = c.session !== false;
@@ -90,7 +96,7 @@ for (var s in config) {
 }
 var ensureLoggedIn = require('connect-ensure-login').ensureLoggedIn;
 
-app.get('/', function(req, res, next) {
+app.get('/', function (req, res, next) {
     res.render('pages/index', {
         user:
         req.user,
@@ -98,29 +104,29 @@ app.get('/', function(req, res, next) {
     });
 });
 
-app.get('/auth/account', ensureLoggedIn('/login'), function(req, res, next) {
+app.get('/auth/account', ensureLoggedIn('/login'), function (req, res, next) {
     res.status(200).json({ "message": req.user });
 });
 
-app.get('/local', function(req, res, next) {
+app.get('/local', function (req, res, next) {
     res.render('pages/local', {
         user: req.user,
         url: req.url,
     });
 });
 
-app.get('/login', function(req, res, next) {
+app.get('/login', function (req, res, next) {
     res.render('pages/login', {
         user: req.user,
         url: req.url,
     });
 });
-app.get('/taco', function(req, res, next) {
+app.get('/taco', function (req, res, next) {
     console.log("cdsajuhkvhdsukbjksedvdfscVDSJLXB DFSOUCVBCoxujb dhsyuxzbv udsbhuil")
     res.status(200).json("message");
 });
 
-app.get('/auth/logout', function(req, res, next) {
+app.get('/auth/logout', function (req, res, next) {
     req.logout();
     res.redirect('/');
 });
@@ -130,11 +136,11 @@ app.get('/auth/logout', function(req, res, next) {
 var loopback = require('loopback');
 var User = loopback.User; // Getting User model
 
-app.post('/my/login', function(req, res) {
+app.post('/my/login', function (req, res) {
     User.login({
         email: "maadmin@meetmaestro.com",
         password: "pass"
-    }, 'user', function(err, token) {
+    }, 'user', function (err, token) {
         if (err) {
             res.render('response', { //render view named 'response.ejs'
                 title: 'Login failed',
@@ -151,20 +157,105 @@ app.post('/my/login', function(req, res) {
 });
 
 
+var passport = require('passport');
+app.use(passport.initialize());
+app.use(passport.session()); // persistent login sessions
+
+
+// require('./config/passport').default(passport, app);
+// lib
+var passportLocal = require('passport-local');
+var loopback = require('loopback');
+
+// app
+var config = require('./config');
+var redis = require("redis");
+var client = redis.createClient();
+var jwt = require('jsonwebtoken'),
+    LocalStrategy = require('passport-local').Strategy,
+    BearerStrategy = require('passport-http-bearer').Strategy;
+
+passport.use('blah', new passportLocal.Strategy({
+    usernameField: 'email'
+},
+    function (email, password, cb) {
+        console.log('passportLocal.Strategy')
+
+
+        var User = loopback.User; // Getting User model
+
+        User.login({
+            email: "maadmin@meetmaestro.com",
+            password: "pass"
+        }, 'user', function (err, token) {
+            if (err) {
+                res.render('response', { //render view named 'response.ejs'
+                    title: 'Login failed',
+                    content: err,
+                    redirectTo: '/',
+                    redirectToLinkText: 'Try again'
+                });
+                return;
+            }
+            console.log('accessToken', token)
+            // res.status(200).json({ 'accessToken':    })
+            return cb(null, { "name": "Ima user", "id": 9879, "email": "fake@email.com", "token": token });
+
+        });
 
 
 
+    }));
+
+passport.use(new BearerStrategy(function (token, cb) {
+    console.log('BearerStrategy')
+    jwt.verify(token, 'verySecret', function (err, decoded) {
+        console.log('verify')
+        if (err) {
+            console.log(err)
+            return cb(err);
+        }
+        console.log('no err')
+        client.get(token, function (err, user) {
+            console.log('redis ')
+            if (err) return cb(err);
+            console.log('no redis error')
+            return cb(null, user ? JSON.parse(user) : false);
+        });
+    });
+}));
 
 
 
-app.start = function() {
+app.post('/jwt/login', function (req, res, next) {
+
+    var jwt = require('jsonwebtoken');
+
+    var client = redis.createClient();
+    console.log('calluing authenticate')
+    passport.authenticate('blah', { session: false }, function (err, user, info) {
+        if (err) return next(err);
+        if (!user) {
+            return res.status(401).json({ status: 'error', code: 'Invalid Username or Password' });
+        } else {
+            var token = jwt.sign({ id: user.id, email: user.email }, 'verySecret');
+            res.cookie('access_token', token, { httpOnly: true });
+            client.set(token, JSON.stringify(user));
+            return res.status(200).json({ access_token: token });
+        }
+    })(req, res, next);
+});
+
+
+
+app.start = function () {
 
     app.use(loopback.token({
         model: app.models.accessToken,
         currentUserLiteral: 'me'
     }));
-    
-    return app.listen(function() {
+
+    return app.listen(function () {
         app.emit('started');
         var baseUrl = app.get('url').replace(/\/$/, '');
         console.log('Web server listening at: %s', baseUrl);
@@ -172,6 +263,34 @@ app.start = function() {
             var explorerPath = app.get('loopback-component-explorer').mountPath;
             console.log('Browse your REST API at %s%s', baseUrl, explorerPath);
         }
+
+        // All routes from this point on need to authenticate with bearer:
+        // Authorization: Bearer <token here>
+        app.all('/taco/*', function (req, res, next) {
+            if (req.cookies && req.cookies.access_token) {
+                req.headers['authorization'] = 'bearer ' + req.cookies.access_token;
+            }
+
+            console.log('req.headers');
+            console.log(req.headers);
+            console.log('req.headers');
+            passport.authenticate('bearer', { session: false }, function (err, user, info) {
+                if (err) return next(err);
+                console.log(user)
+                if (user) {
+                    req.user = user;
+                    return next();
+                } else {
+                    return res.status(401).json({ status: 'error', code: 'Unauthorized' });
+                }
+            })(req, res, next);
+        });
+        app.get('/taco/2', function (req, res, next) {
+            console.log("req.user cdsajuhkvhdsukbjksedvdfscVDSJLXB DFSOUCVBCoxujb dhsyuxzbv udsbhuil")
+            console.log(req.user)
+            console.log("req.user cdsajuhkvhdsukbjksedvdfscVDSJLXB DFSOUCVBCoxujb dhsyuxzbv udsbhuil")
+            res.status(200).json("message");
+        });
     });
 };
 
